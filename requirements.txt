@@ -4,3 +4,4 @@ openai-whisper
 nltk
 weasyprint
 torch
+Markdown
