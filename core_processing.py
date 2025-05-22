@@ -123,7 +123,7 @@ def generate_notes_with_gemini_api(text_input, api_key, note_style_prompt=""):
         **Please generate the notes in Markdown format, strictly adhering to the structure, detail, and visual appeal guidelines above.**
         """
 
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.0-flash')
         response = model.generate_content(enhanced_prompt)
 
         if hasattr(response, 'text') and response.text:
