@@ -32,7 +32,7 @@ except LookupError:
         print(f"Failed to download NLTK data: {e}. Some text processing features might be affected.")
 
 # --- Global Whisper Model Configuration ---
-WHISPER_MODEL_SIZE = "small.en"
+WHISPER_MODEL_SIZE = "base.en"
 
 # --- Configuration for Note Generation ---
 # This prompt provides additional specific instructions to Gemini for note generation.
