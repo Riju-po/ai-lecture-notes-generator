@@ -18,7 +18,7 @@ This Streamlit application allows you to generate comprehensive lecture notes fr
 ## Deployment
 
 This application is deployed on Streamlit Cloud.
-[Link to your deployed app here] - *Replace with your actual Streamlit Cloud app URL.*
+[(https://ai-notes-generator.streamlit.app/)] - *Replace with your actual Streamlit Cloud app URL.*
 
 ## Technologies Used
 
