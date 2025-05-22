@@ -16,7 +16,7 @@ import torch
 
 # For Robust Markdown to PDF Conversion
 import markdown
-from weasyprint import HTML, CSS
+from weasyprint import HTML, CSS # Ensure HTML and CSS are imported here
 
 # --- NLTK Data Check (ensure these are downloaded) ---
 try:
@@ -136,13 +136,18 @@ def generate_notes_with_gemini_api(text_input, api_key, note_style_prompt=""):
         return f"Could not generate notes using Gemini API: {e}"
 
 # Function to Create PDF from Text (Using Markdown and WeasyPrint)
-def create_pdf_from_text(markdown_text, output_pdf_path, title="Audio Transcription Notes"):
+# Updated to accept optional stylesheets
+def create_pdf_from_text(markdown_text, output_pdf_path, title="Audio Transcription Notes", stylesheets: list = None):
     """
     Converts Markdown text into a visually appealing and well-structured PDF
     using the 'markdown' library to convert Markdown to HTML, and 'WeasyPrint'
-    to render that HTML into a PDF document. Includes comprehensive CSS for styling.
+    to render that HTML into a PDF document. Includes comprehensive CSS for styling
+    and applies additional stylesheets for headers/footers.
     """
     print(f"\n--- Creating PDF with robust Markdown rendering ---")
+    if stylesheets is None:
+        stylesheets = [] # Initialize as empty list if no stylesheets are provided
+
     try:
         html_content = f"""
         <!DOCTYPE html>
@@ -269,7 +274,8 @@ def create_pdf_from_text(markdown_text, output_pdf_path, title="Audio Transcript
         </body>
         </html>
         """
-        HTML(string=html_content).write_pdf(output_pdf_path)
+        # Pass the stylesheets list to write_pdf
+        HTML(string=html_content).write_pdf(output_pdf_path, stylesheets=stylesheets)
         print(f"PDF successfully created at: {output_pdf_path}")
     except Exception as e:
         print(f"Error creating PDF: {e}")
