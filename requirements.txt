@@ -2,6 +2,5 @@ streamlit
 google-generativeai
 openai-whisper
 nltk
-weasyprint
 torch
 Markdown
