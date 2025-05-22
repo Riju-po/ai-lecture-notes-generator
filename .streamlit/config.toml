@@ -1,0 +1,4 @@
+[server]
+# Prevents Streamlit from watching files in the torch, torchvision, and torchaudio library folders.
+# This can resolve issues where the watcher conflicts with these libraries' internal structures.
+folderWatchBlacklist = ['torch', 'torchvision', 'torchaudio']
