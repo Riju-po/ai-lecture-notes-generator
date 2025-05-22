@@ -6,6 +6,7 @@ import tempfile
 import sys
 import zipfile
 import io
+from weasyprint import HTML, CSS # Added WeasyPrint imports
 
 # --- Streamlit Page Configuration ---
 st.set_page_config(
@@ -23,7 +24,7 @@ sys.path.append(os.path.dirname(__file__))
 from core_processing import (
     transcribe_audio_whisper,
     generate_notes_with_gemini_api,
-    create_pdf_from_text,
+    create_pdf_from_text, # This function will be updated
     WHISPER_MODEL_SIZE,
     NOTE_STYLE_PROMPT
 )
@@ -95,6 +96,18 @@ with st.sidebar:
     if st.button("Reset Application", help="Clear all uploaded files and generated notes"):
         st.session_state.clear()
         st.rerun()
+
+# --- Define the CSS for the PDF footer ---
+pdf_footer_css = CSS(string='''
+    @page {
+        @bottom-center {
+            content: "Created By Gourav Das";
+            font-size: 10pt;
+            color: #555;
+            margin-top: 10mm;
+        }
+    }
+''')
 
 # --- Main Application User Interface ---
 st.title("🎧 AI-Powered Lecture Notes Generator 📝")
@@ -172,7 +185,9 @@ if uploaded_files:
                                             current_pdf_path = tmp_pdf_file.name
 
                                         pdf_title = f"Lecture Notes: {os.path.splitext(uploaded_file.name)[0]}"
-                                        create_pdf_from_text(notes_content, current_pdf_path, pdf_title)
+                                        # Pass the pdf_footer_css to the create_pdf_from_text function
+                                        create_pdf_from_text(notes_content, current_pdf_path, pdf_title,
+                                                             stylesheets=[pdf_footer_css]) # Modified line
 
                                     if os.path.exists(current_pdf_path):
                                         st.success(f"PDF created for '{uploaded_file.name}'!", icon="✅")
