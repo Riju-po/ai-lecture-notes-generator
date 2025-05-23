@@ -86,7 +86,7 @@ with st.sidebar:
             """
             This application helps you transform your spoken lectures and audio recordings
             into organized, readable study notes in PDF format.
-            Simply upload your audio, and the app will generate a comprehensive summary
+            Simply upload your audio, or provide an existing transcription, and the app will generate a comprehensive summary
             that you can download and review.
             """
         )
@@ -114,138 +114,190 @@ st.title("🎧 AI-Powered Lecture Notes Generator 📝")
 st.markdown(
     """
     **Transform your audio lectures into highly organized and comprehensive study notes in PDF format.**
-    Upload one or more audio files, and let AI do the heavy lifting!
+    Choose an input method below to get started!
     """
 )
 
 st.divider()
 
-# File Uploader Widget
-uploaded_files = st.file_uploader(
-    "📂 **Upload your audio files here**",
-    type=["mp3", "wav", "m4a", "flac", "ogg"],
-    accept_multiple_files=True,
-    help="Supported formats: MP3, WAV, M4A, FLAC, OGG. Max file size depends on hosting (typically 25-200MB per file)."
-)
+# --- Tabbed Interface for Input Options ---
+tab1, tab2, tab3 = st.tabs(["Upload Audio (Whisper)", "Upload Transcription File", "Paste Transcription Text"])
 
 all_generated_pdf_paths = []
 all_generated_pdf_names = []
 
-if uploaded_files:
-    st.info(f"Processing {len(uploaded_files)} file(s). This may take a while...", icon="⏳")
-    st.divider()
+# --- Helper function to generate notes and PDF (reused for all tabs) ---
+def process_transcription_and_generate_output(transcript_text, file_identifier, key_suffix=""):
+    """
+    Processes transcription text to generate notes and PDF.
+    `file_identifier` is used for display and naming output files.
+    """
+    if not gemini_api_key:
+        st.error(f"Gemini API key is not configured. Cannot generate notes for {file_identifier}.", icon="🚫")
+        return
 
-    for i, uploaded_file in enumerate(uploaded_files):
-        with st.container(border=True):
-            st.subheader(f"✨ Processing: {uploaded_file.name}")
-            st.audio(uploaded_file, format=uploaded_file.type)
+    if not transcript_text.strip():
+        st.warning(f"Transcription for {file_identifier} is empty. Cannot generate notes.", icon="⚠️")
+        return
 
-            with tempfile.NamedTemporaryFile(delete=False,
-                                             suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_audio_file:
-                tmp_audio_file.write(uploaded_file.read())
-                audio_path = tmp_audio_file.name
+    with st.spinner(f"Generating detailed notes for {file_identifier} with AI..."):
+        notes_content = generate_notes_with_gemini_api(transcript_text, gemini_api_key, NOTE_STYLE_PROMPT)
 
-            current_pdf_path = None
+        if "Cannot generate notes" in notes_content or "Could not generate notes using Gemini API" in notes_content:
+            st.error(f"Note generation failed for '{file_identifier}': {notes_content}", icon="❌")
+            return
+        else:
+            st.success(f"Notes generated successfully for '{file_identifier}'!", icon="✅")
+            with st.expander(f"View Generated Notes for {file_identifier}"):
+                st.markdown(notes_content)
 
+            with st.spinner(f"Creating PDF document for {file_identifier}..."):
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf_file:
+                    current_pdf_path = tmp_pdf_file.name
+
+                pdf_title = f"Lecture Notes: {file_identifier.replace(' ', '_')}"
+                create_pdf_from_text(notes_content, current_pdf_path, pdf_title,
+                                     stylesheets=[pdf_footer_css])
+
+                if os.path.exists(current_pdf_path):
+                    st.success(f"PDF created for '{file_identifier}'!", icon="✅")
+                    with open(current_pdf_path, "rb") as file:
+                        st.download_button(
+                            label=f"Download Notes PDF for {file_identifier}",
+                            data=file,
+                            file_name=f"{file_identifier.replace(' ', '_')}_notes.pdf",
+                            mime="application/pdf",
+                            key=f"download_button_{key_suffix}_{file_identifier}"
+                        )
+                    all_generated_pdf_paths.append(current_pdf_path)
+                    all_generated_pdf_names.append(f"{file_identifier.replace(' ', '_')}_notes.pdf")
+                else:
+                    st.error(f"Failed to create PDF for '{file_identifier}'.", icon="❌")
+
+
+# --- Tab 1: Upload Audio (Existing functionality modified for single upload per interaction) ---
+with tab1:
+    st.header("1. Upload Audio for Transcription")
+    st.info("Upload an audio file. Transcription (Whisper) is ideally run locally due to computational demands. Notes will be generated by Gemini AI.")
+    st.markdown("---") # Separator for clarity
+
+    audio_file = st.file_uploader(
+        "📂 **Upload your audio file here**",
+        type=["mp3", "wav", "m4a", "flac", "ogg"],
+        key="audio_uploader_tab1",
+        help="Supported formats: MP3, WAV, M4A, FLAC, OGG. Max file size depends on hosting (typically 25-200MB)."
+    )
+
+    if audio_file:
+        st.audio(audio_file, format=audio_file.type)
+        st.success("Audio file uploaded successfully!", icon="✅")
+
+        if st.button("Transcribe Audio & Generate Notes", key="process_audio_tab1"):
             try:
+                # --- Original audio processing logic ---
+                with tempfile.NamedTemporaryFile(delete=False,
+                                                  suffix=os.path.splitext(audio_file.name)[1]) as tmp_audio_file:
+                    tmp_audio_file.write(audio_file.read())
+                    audio_path = tmp_audio_file.name
+
                 if whisper_model_instance:
-                    with st.spinner(f"Step 1/3 ({uploaded_file.name}): Transcribing audio..."):
+                    with st.spinner(f"Transcribing audio '{audio_file.name}' with Whisper..."):
                         transcribed_content = transcribe_audio_whisper(audio_path, whisper_model_instance)
 
-                    if "Error:" in transcribed_content or "no speech" in transcribed_content:
-                        st.error(f"Transcription failed for '{uploaded_file.name}': {transcribed_content}", icon="❌")
+                    if "Error:" in transcribed_content or "no speech" in transcribed_content or not transcribed_content.strip():
+                        st.error(f"Transcription failed for '{audio_file.name}': {transcribed_content}", icon="❌")
                         transcribed_content = None
                     else:
-                        st.success(f"Transcription complete for '{uploaded_file.name}'!", icon="✅")
+                        st.success(f"Transcription complete for '{audio_file.name}'!", icon="✅")
                         display_transcription = transcribed_content
                         if len(display_transcription) > 1000:
-                            display_transcription = display_transcription[
-                                                    :1000] + "\n\n... (Transcription truncated for display)"
+                            display_transcription = display_transcription[:1000] + "\n\n... (Transcription truncated for display)"
 
-                        with st.expander(f"Raw Transcription for {uploaded_file.name}"):
+                        with st.expander(f"Raw Transcription for {audio_file.name}"):
                             st.text_area(f"Raw Transcript:", display_transcription, height=150,
-                                         key=f"transcription_text_{i}")
+                                         key=f"transcription_text_{audio_file.name.replace('.', '_')}")
 
-                        if transcribed_content and gemini_api_key:
-                            with st.spinner(f"Step 2/3 ({uploaded_file.name}): Generating detailed notes with AI..."):
-                                notes_content = generate_notes_with_gemini_api(transcribed_content, gemini_api_key,
-                                                                               NOTE_STYLE_PROMPT)
-
-                            if "Cannot generate notes" in notes_content or "Could not generate notes using Gemini API" in notes_content:
-                                st.error(f"Note generation failed for '{uploaded_file.name}': {notes_content}",
-                                         icon="❌")
-                                notes_content = None
-                            else:
-                                st.success(f"Notes generated successfully for '{uploaded_file.name}'!", icon="✅")
-                                with st.expander(f"View Generated Notes for {uploaded_file.name}"):
-                                    st.markdown(notes_content)
-
-                                    with st.spinner(f"Step 3/3 ({uploaded_file.name}): Creating PDF document..."):
-                                        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf_file:
-                                            current_pdf_path = tmp_pdf_file.name
-
-                                        pdf_title = f"Lecture Notes: {os.path.splitext(uploaded_file.name)[0]}"
-                                        # Pass the pdf_footer_css to the create_pdf_from_text function
-                                        create_pdf_from_text(notes_content, current_pdf_path, pdf_title,
-                                                             stylesheets=[pdf_footer_css]) # Modified line
-
-                                    if os.path.exists(current_pdf_path):
-                                        st.success(f"PDF created for '{uploaded_file.name}'!", icon="✅")
-                                        with open(current_pdf_path, "rb") as file:
-                                            st.download_button(
-                                                label=f"Download Notes PDF for {uploaded_file.name}",
-                                                data=file,
-                                                file_name=f"{os.path.splitext(uploaded_file.name)[0]}_notes.pdf",
-                                                mime="application/pdf",
-                                                key=f"download_button_single_{i}"
-                                            )
-                                        all_generated_pdf_paths.append(current_pdf_path)
-                                        all_generated_pdf_names.append(
-                                            f"{os.path.splitext(uploaded_file.name)[0]}_notes.pdf")
-                                    else:
-                                        st.error(f"Failed to create PDF for '{uploaded_file.name}'.", icon="❌")
-                        elif not gemini_api_key:
-                            st.warning(
-                                f"AI note generation is disabled for '{uploaded_file.name}' as the API key is not configured.",
-                                icon="⚠️")
+                        # Call the helper function to process transcript and generate notes/PDF
+                        process_transcription_and_generate_output(transcribed_content, audio_file.name, key_suffix="audio")
                 else:
                     st.error(
-                        f"Transcription service is unavailable for '{uploaded_file.name}'. Please check the backend setup.",
+                        f"Transcription service is unavailable for '{audio_file.name}'. Please check the backend setup (Whisper model failed to load).",
                         icon="❌")
-
             except Exception as e:
-                st.error(f"An unexpected error occurred during processing of '{uploaded_file.name}': {e}", icon="🚨")
+                st.error(f"An unexpected error occurred during audio processing of '{audio_file.name}': {e}", icon="🚨")
             finally:
                 if 'audio_path' in locals() and os.path.exists(audio_path):
                     os.remove(audio_path)
 
-            st.markdown("---")
 
-    if all_generated_pdf_paths:
-        st.success(f"All {len(all_generated_pdf_paths)} lecture notes have been processed!", icon="🎉")
-        st.subheader("Download All Notes")
+# --- Tab 2: Upload Transcription File ---
+with tab2:
+    st.header("2. Upload Existing Transcription File")
+    st.info("Upload a text file containing your transcription. Notes will be generated by Gemini AI.")
+    st.markdown("---") # Separator for clarity
 
-        zip_buffer = io.BytesIO()
+    uploaded_transcription_file = st.file_uploader("Upload a text file (.txt, .md, etc.)", type=["txt", "md"], key="file_uploader_tab2")
 
-        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-            for i, pdf_path in enumerate(all_generated_pdf_paths):
-                if os.path.exists(pdf_path):
-                    zf.write(pdf_path, arcname=all_generated_pdf_names[i])
+    if uploaded_transcription_file is not None:
+        # Read the content of the uploaded file
+        string_io = io.StringIO(uploaded_transcription_file.getvalue().decode("utf-8"))
+        uploaded_transcript_text = string_io.read()
 
-        zip_buffer.seek(0)
+        if uploaded_transcript_text:
+            st.subheader("Uploaded Transcription Content:")
+            st.text_area("Review Uploaded Transcription:", uploaded_transcript_text, height=300, key="uploaded_transcript_display_tab2")
 
-        st.download_button(
-            label="📦 Download All Notes as ZIP",
-            data=zip_buffer,
-            file_name="All_Lecture_Notes.zip",
-            mime="application/zip",
-            key="download_all_notes_button"
-        )
+            if st.button("Generate Notes from Uploaded File", key="process_file_tab2"):
+                process_transcription_and_generate_output(uploaded_transcript_text, uploaded_transcription_file.name, key_suffix="file")
+        else:
+            st.warning("The uploaded file appears to be empty or could not be read.")
 
-        st.info(
-            "Your temporary files will be cleaned up automatically after download or app refresh. For a fresh start, use the 'Reset Application' button in the sidebar.",
-            icon="🗑️")
+# --- Tab 3: Paste Transcription Text ---
+with tab3:
+    st.header("3. Paste Transcription Text")
+    st.info("Paste your transcription directly into the text area below. Notes will be generated by Gemini AI.")
+    st.markdown("---") # Separator for clarity
 
+    pasted_transcript_text = st.text_area("Paste your lecture transcription here:", height=400, key="pasted_transcript_input_tab3")
+
+    if pasted_transcript_text:
+        st.subheader("Pasted Transcription Content:")
+        st.text_area("Review Pasted Text:", pasted_transcript_text, height=300, key="pasted_transcript_display_tab3")
+
+        if st.button("Generate Notes from Pasted Text", key="process_paste_tab3"):
+            process_transcription_and_generate_output(pasted_transcript_text, "Pasted Text", key_suffix="paste")
+    else:
+        st.info("Paste your lecture transcription into the text area above to generate notes.")
+
+
+# --- Download All Notes (Combined for all sources) ---
+st.divider()
+if all_generated_pdf_paths:
+    st.success(f"All {len(all_generated_pdf_paths)} lecture notes have been processed across all inputs!", icon="🎉")
+    st.subheader("Download All Notes")
+
+    zip_buffer = io.BytesIO()
+
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for i, pdf_path in enumerate(all_generated_pdf_paths):
+            if os.path.exists(pdf_path):
+                zf.write(pdf_path, arcname=all_generated_pdf_names[i])
+
+    zip_buffer.seek(0)
+
+    st.download_button(
+        label="📦 Download All Notes as ZIP",
+        data=zip_buffer,
+        file_name="All_Lecture_Notes.zip",
+        mime="application/zip",
+        key="download_all_notes_button_final"
+    )
+
+    st.info(
+        "Your temporary files will be cleaned up automatically after download or app refresh. For a fresh start, use the 'Reset Application' button in the sidebar.",
+        icon="🗑️")
+
+    # Clean up temporary PDF files
     for pdf_path in all_generated_pdf_paths:
         if os.path.exists(pdf_path):
             try:
