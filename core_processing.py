@@ -46,21 +46,39 @@ Also, extract any open questions or discussion points raised during the lecture 
 """
 
 # Function to Transcribe Audio with Whisper
-def transcribe_audio_whisper(audio_file_path, whisper_model_instance):
+def transcribe_audio_whisper(audio_file_path, whisper_model_instance, progress_callback=None):
     """
     Transcribes an audio file into text using a pre-loaded Whisper model instance.
     Handles file existence checks and basic error reporting.
+    Includes an optional progress_callback for UI updates.
     """
     print(f"\n--- Transcribing: {os.path.basename(audio_file_path)} ---")
     if whisper_model_instance is None:
+        if progress_callback:
+            progress_callback(0) # Ensure progress bar doesn't start if model failed to load
         return "Error: Whisper model not loaded. Cannot transcribe."
 
     try:
         if not os.path.exists(audio_file_path):
+            if progress_callback:
+                progress_callback(0)
             return f"Error: Audio file not found at '{audio_file_path}'"
 
+        if os.path.getsize(audio_file_path) == 0:
+            if progress_callback:
+                progress_callback(0)
+            return f"Error: Audio file at '{audio_file_path}' is empty. Cannot transcribe."
+
+        if progress_callback:
+            # Indicate initial progress as transcription starts
+            progress_callback(10)
+
+        # Perform the transcription
         result = whisper_model_instance.transcribe(audio_file_path)
         transcribed_text = result["text"]
+
+        if progress_callback:
+            progress_callback(100) # Indicate completion of transcription
 
         if not transcribed_text.strip():
             return "Whisper recognized no speech or produced empty transcription."
@@ -68,6 +86,8 @@ def transcribe_audio_whisper(audio_file_path, whisper_model_instance):
             return transcribed_text.strip()
 
     except Exception as e:
+        if progress_callback:
+            progress_callback(0) # Reset or indicate failure
         return f"An unexpected error occurred during Whisper transcription: {e}"
 
 # Function to Generate Notes (with Gemini API)
