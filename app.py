@@ -279,21 +279,22 @@ with tab2: # <--- This is the new tab for video upload
             audio_path = None
             try:
                 # Save the uploaded video file to a temporary location
-                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(video_file.name)[1]) as tmp_video_file:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(video_file.name)[1]) as tmp_video_file: # Corrected os.path_splitext
                     tmp_video_file.write(video_file.read())
                     video_path = tmp_video_file.name
 
                 if not os.path.exists(video_path) or os.path.getsize(video_path) == 0:
                     st.error(f"Error: Uploaded video file '{video_file.name}' is empty or corrupted.", icon="❌")
-                else:
+                    # No return here, as the subsequent logic will not execute if video_path is invalid
+                else: # Only proceed with audio extraction if video file is valid
                     # --- Step 1: Extract Audio from Video ---
                     with st.spinner(f"Extracting audio from '{video_file.name}'... This might take a moment."):
                         audio_path = extract_audio_from_video(video_path) # Call the new function from core_processing
                     
                     if not audio_path or not os.path.exists(audio_path):
                         st.error(f"Failed to extract audio from '{video_file.name}'. Please ensure the video is valid and try again.", icon="❌")
-                        return
-
+                        st.stop() # <--- REPLACED 'return' with 'st.stop()'
+                    
                     st.success("Audio extracted! Starting transcription...", icon="✅")
                     
                     # --- Step 2: Transcribe Audio ---
