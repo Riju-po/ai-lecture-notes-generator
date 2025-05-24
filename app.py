@@ -1,5 +1,3 @@
-# app.py
-
 import streamlit as st
 import os
 import tempfile
@@ -21,12 +19,14 @@ st.set_page_config(
 sys.path.append(os.path.dirname(__file__))
 
 # Import functions and configurations from your core_processing.py file.
+# We will add extract_audio_from_video to core_processing.py next.
 from core_processing import (
     transcribe_audio_whisper,
     generate_notes_with_gemini_api,
     create_pdf_from_text,
     WHISPER_MODEL_SIZE,
-    NOTE_STYLE_PROMPT
+    NOTE_STYLE_PROMPT,
+    extract_audio_from_video # <--- NEW IMPORT for video processing
 )
 
 # Import necessary libraries that core_processing depends on, specifically for Streamlit's
@@ -86,7 +86,7 @@ with st.sidebar:
             """
             This application helps you transform your spoken lectures and audio recordings
             into organized, readable study notes in PDF format.
-            Simply upload your audio, or provide an existing transcription, and the app will generate a comprehensive summary
+            Simply upload your audio/video, or provide an existing transcription, and the app will generate a comprehensive summary
             that you can download and review.
             """
         )
@@ -171,8 +171,8 @@ def process_transcription_and_generate_output(transcript_text, file_identifier, 
 st.title("🎧 AI-Powered Lecture Notes Generator 📝")
 st.markdown(
     """
-    **Transform your audio lectures or raw text into highly organized and comprehensive study notes in PDF format.**
-    Simply upload your audio, or provide an existing transcription, and the app will generate a comprehensive summary
+    **Transform your audio/video lectures or raw text into highly organized and comprehensive study notes in PDF format.**
+    Simply upload your video/audio, or provide an existing transcription, and the app will generate a comprehensive summary
     that you can download and review.
     """
 )
@@ -180,8 +180,10 @@ st.markdown(
 st.divider()
 
 # --- Tabbed Interface for Input Options ---
-tab1, tab2, tab3 = st.tabs([
+# Added a new tab for "Upload Video"
+tab1, tab2, tab3, tab4 = st.tabs([ # <--- NEW: added tab4
     "Upload Audio",
+    "Upload Video", # <--- NEW: Video Upload Tab
     "Upload Transcription File",
     "Paste Transcription Text"
 ])
@@ -190,7 +192,7 @@ all_generated_pdf_paths = []
 all_generated_pdf_names = []
 
 
-# --- Tab 1: Upload Audio ---
+# --- Original Tab 1: Upload Audio ---
 with tab1:
     st.header("1. Upload Audio for Transcription")
     st.info("Upload an audio file. Transcription will start automatically, followed by AI note generation.")
@@ -253,13 +255,92 @@ with tab1:
                 icon="❌")
 
 
-# --- Tab 2: Upload Transcription File ---
-with tab2:
-    st.header("2. Upload Existing Transcription File")
+# --- NEW Tab 2: Upload Video ---
+with tab2: # <--- This is the new tab for video upload
+    st.header("2. Upload Video for Transcription")
+    st.info("Upload a video file. Audio will be extracted and transcription will start automatically, followed by AI note generation.")
+    st.markdown("---")
+
+    video_file = st.file_uploader(
+        "📂 **Upload your video file here**",
+        type=["mp4", "avi", "mov", "mkv", "webm"], # Added common video types
+        key="video_uploader_tab2", # Unique key for this uploader
+        help="Supported formats: MP4, AVI, MOV, MKV, WebM. Max file size depends on hosting."
+    )
+
+    if video_file:
+        # Display the video file (Streamlit can render uploaded videos)
+        st.video(video_file, format=video_file.type)
+
+        st.success("Video file uploaded successfully! Extracting audio...", icon="✅")
+
+        if whisper_model_instance:
+            video_path = None
+            audio_path = None
+            try:
+                # Save the uploaded video file to a temporary location
+                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(video_file.name)[1]) as tmp_video_file:
+                    tmp_video_file.write(video_file.read())
+                    video_path = tmp_video_file.name
+
+                if not os.path.exists(video_path) or os.path.getsize(video_path) == 0:
+                    st.error(f"Error: Uploaded video file '{video_file.name}' is empty or corrupted.", icon="❌")
+                else:
+                    # --- Step 1: Extract Audio from Video ---
+                    with st.spinner(f"Extracting audio from '{video_file.name}'... This might take a moment."):
+                        audio_path = extract_audio_from_video(video_path) # Call the new function from core_processing
+                    
+                    if not audio_path or not os.path.exists(audio_path):
+                        st.error(f"Failed to extract audio from '{video_file.name}'. Please ensure the video is valid and try again.", icon="❌")
+                        return
+
+                    st.success("Audio extracted! Starting transcription...", icon="✅")
+                    
+                    # --- Step 2: Transcribe Audio ---
+                    transcription_placeholder = st.empty() # Placeholder for transcription progress
+                    with transcription_placeholder.container():
+                        transcription_progress_bar = st.progress(0, text=f"Transcribing audio from '{video_file.name}' with Whisper... (This may take a while)")
+                        # Pass the progress_callback to the transcribe function
+                        transcribed_content = transcribe_audio_whisper(audio_path, whisper_model_instance, progress_callback=lambda p: transcription_progress_bar.progress(p))
+                        transcription_progress_bar.progress(100) # Ensure it reaches 100%
+
+                    if "Error:" in transcribed_content or "no speech" in transcribed_content or not transcribed_content.strip():
+                        st.error(f"Transcription failed for '{video_file.name}': {transcribed_content}", icon="❌")
+                        transcribed_content = None
+                        transcription_placeholder.empty() # Clear the progress bar on error
+                    else:
+                        st.success(f"Transcription complete for '{video_file.name}'!", icon="✅")
+                        transcription_placeholder.empty() # Clear the progress bar on success
+                        display_transcription = transcribed_content
+                        if len(display_transcription) > 1000:
+                            display_transcription = display_transcription[:1000] + "\n\n... (Transcription truncated for display)"
+
+                        with st.expander(f"Raw Transcription for {video_file.name}"):
+                            st.text_area(f"Raw Transcript:", display_transcription, height=150,
+                                         key=f"transcription_text_{video_file.name.replace('.', '_')}_video") # Unique key
+
+                        # Call the helper function to process transcript and generate notes/PDF
+                        process_transcription_and_generate_output(transcribed_content, video_file.name, key_suffix="video")
+            except Exception as e:
+                st.error(f"An unexpected error occurred during video processing of '{video_file.name}': {e}", icon="🚨")
+            finally:
+                if video_path and os.path.exists(video_path):
+                    os.remove(video_path)
+                if audio_path and os.path.exists(audio_path): # Ensure audio file is also cleaned up
+                    os.remove(audio_path)
+        else:
+            st.error(
+                f"Transcription service is unavailable. Please check the backend setup (Whisper model failed to load).",
+                icon="❌")
+
+
+# --- Original Tab 2 (now tab 3): Upload Transcription File ---
+with tab3: # <--- Adjusted tab number
+    st.header("3. Upload Existing Transcription File")
     st.info("Upload a text file containing your transcription. Notes will be generated by Gemini AI.")
     st.markdown("---")
 
-    uploaded_transcription_file = st.file_uploader("Upload a text file (.txt, .md, etc.)", type=["txt", "md"], key="file_uploader_tab2")
+    uploaded_transcription_file = st.file_uploader("Upload a text file (.txt, .md, etc.)", type=["txt", "md"], key="file_uploader_tab3") # <--- Adjusted key
 
     if uploaded_transcription_file is not None:
         # Read the content of the uploaded file
@@ -268,24 +349,24 @@ with tab2:
 
         if uploaded_transcript_text.strip(): # Check if content is not empty
             st.subheader("Uploaded Transcription Content:")
-            st.text_area("Review Uploaded Transcription:", uploaded_transcript_text, height=300, key="uploaded_transcript_display_tab2")
+            st.text_area("Review Uploaded Transcription:", uploaded_transcript_text, height=300, key="uploaded_transcript_display_tab3") # <--- Adjusted key
 
             # Trigger processing immediately upon valid upload
             process_transcription_and_generate_output(uploaded_transcript_text, uploaded_transcription_file.name, key_suffix="file")
         else:
             st.warning("The uploaded file appears to be empty or could not be read. Please upload a file with content.", icon="⚠️")
 
-# --- Tab 3: Paste Transcription Text ---
-with tab3:
-    st.header("3. Paste Transcription Text")
+# --- Original Tab 3 (now tab 4): Paste Transcription Text ---
+with tab4: # <--- Adjusted tab number
+    st.header("4. Paste Transcription Text")
     st.info("Paste your transcription directly into the text area below. Notes will be generated by Gemini AI.")
     st.markdown("---")
 
-    pasted_transcript_text = st.text_area("Paste your lecture transcription here:", height=400, key="pasted_transcript_input_tab3")
+    pasted_transcript_text = st.text_area("Paste your lecture transcription here:", height=400, key="pasted_transcript_input_tab4") # <--- Adjusted key
 
     if pasted_transcript_text.strip(): # Check if content is not empty
         st.subheader("Pasted Transcription Content:")
-        st.text_area("Review Pasted Text:", pasted_transcript_text, height=300, key="pasted_transcript_display_tab3")
+        st.text_area("Review Pasted Text:", pasted_transcript_text, height=300, key="pasted_transcript_display_tab4") # <--- Adjusted key
 
         # Trigger processing immediately upon valid paste (if text is present)
         process_transcription_and_generate_output(pasted_transcript_text, "Pasted Text", key_suffix="paste")
