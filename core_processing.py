@@ -1,11 +1,12 @@
-# core_processing.py
-
 # Core Libraries
 import os
 import json
 import nltk
 import time
 import tempfile
+
+# NEW IMPORT: For video processing
+import moviepy.editor as mp # <--- NEW IMPORT
 
 # Google Gemini API
 import google.generativeai as genai
@@ -32,7 +33,7 @@ except LookupError:
         print(f"Failed to download NLTK data: {e}. Some text processing features might be affected.")
 
 # --- Global Whisper Model Configuration ---
-WHISPER_MODEL_SIZE = "base.en"
+WHISPER_MODEL_SIZE = "base.en" # Or "small.en", "medium.en" etc.
 
 # --- Configuration for Note Generation ---
 # This prompt provides additional specific instructions to Gemini for note generation.
@@ -44,6 +45,39 @@ Focus on core concepts, algorithms, and practical implementation details.
 Include theoretical definitions, practical application examples, and specific library/framework mentions (e.g., Pandas, Scikit-learn, TensorFlow) if discussed.
 Also, extract any open questions or discussion points raised during the lecture for further exploration.
 """
+
+# --- NEW FUNCTION: Extract Audio from Video ---
+def extract_audio_from_video(video_file_path):
+    """
+    Extracts the audio track from a video file and saves it as a temporary MP3 file.
+    Uses moviepy for processing.
+    """
+    print(f"\n--- Extracting audio from: {os.path.basename(video_file_path)} ---")
+    audio_output_path = None
+    try:
+        # Create a temporary file path for the extracted audio
+        # Using tempfile to ensure unique and safely managed temporary files
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_audio_file:
+            audio_output_path = tmp_audio_file.name
+
+        video_clip = mp.VideoFileClip(video_file_path)
+        audio_clip = video_clip.audio
+        # Write audio to MP3. Using a specific codec is often good practice.
+        audio_clip.write_audiofile(audio_output_path, codec="libmp3lame")
+        
+        audio_clip.close()
+        video_clip.close()
+        
+        print(f"Audio extracted successfully to: {audio_output_path}")
+        return audio_output_path
+
+    except Exception as e:
+        print(f"Error extracting audio from video '{os.path.basename(video_file_path)}': {e}")
+        # Ensure temporary audio file is cleaned up if extraction fails
+        if audio_output_path and os.path.exists(audio_output_path):
+            os.remove(audio_output_path)
+        return None
+
 
 # Function to Transcribe Audio with Whisper
 def transcribe_audio_whisper(audio_file_path, whisper_model_instance, progress_callback=None):
