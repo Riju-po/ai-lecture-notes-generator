@@ -140,42 +140,141 @@ def generate_notes_with_gemini_api(text_input, api_key, note_style_prompt=""):
         genai.configure(api_key=api_key)
 
         # The detailed prompt for Gemini
-        enhanced_prompt = f"""
-        You are an expert data science instructor specializing in creating highly detailed and structured study notes from lecture transcripts. Your goal is to produce notes that are visually appealing and comprehensive, suitable for a university-level data science course.
+        enhanced_prompt = f"""You are an elite educational AI. Your primary task is to convert the provided transcript into TWO distinct Markdown outputs: (1) Comprehensive study notes, and (2) A personalized teaching explanation. Adhere STRICTLY to all formatting rules.
 
-        The following is a transcript from an audio recording of a data science lecture.
+                **PART 1: ENHANCED STUDY NOTES**
 
-        **Instructions for Note Generation:**
-        1.  **Strictly use ONE Level 1 Heading (H1, i.e., #) ONLY at the very beginning of the notes.** This will be the main title of the lecture. Do NOT include any other H1 headings.
-        2.  **Organize the content into logical sections using Level 2 Headings (H2, i.e., ##).** For complex topics, use Level 3 Headings (H3, i.e., ###) for sub-sections.
-        3.  **Ensure notes are highly detailed and comprehensive.** Elaborate on concepts, provide explanations, and include sufficient context. Do not just list bullet points; expand on them.
-        4. Within each section, use:
-            * **Bullet points (`*` or `-`)** for key concepts, definitions, and short explanations.
-            * **Numbered lists (`1.`)** for ordered steps, processes, or algorithms.
-            * **Bold text (`**text**`)** for important terms, keywords, or highlights.
-            * **Italic text (`*text*` or `_text_`)** for emphasis or foreign terms.
-            * **Code examples** should be formatted within a distinct code block (```python ... ```, ```sql ... ```, or similar, indicating the language if applicable). Ensure code is syntactically correct and includes comments if useful.
-            * **Mathematical expressions:** Enclose inline math within single dollar signs, e.g., `$E=mc^2$`. For display math, use double dollar signs, e.g., `$$F=ma$$`. (Note: WeasyPrint will display these literally, not render them as typeset math symbols).
-        5.  **Always include a "Key Concepts" or "Vocabulary" section.** Define terms clearly.
-        6.  **Always include a "Practical Applications" or "Use Cases" section.** Describe how the concepts are applied in real-world data science scenarios.
-        7.  **If any questions or discussions about future topics arise in the transcript, summarize them** under a "Discussion Points" or "Further Exploration" section.
-        8.  **Conclude with a "Summary" section** that briefly recaps the main takeaways. If applicable, create a simple Markdown table for a summary of key components (like concept-description pairs).
-        9.  **Maintain a formal, academic tone.**
-        10. **Do NOT include conversational filler, speaker remarks, or irrelevant digressions.** Focus purely on the data science content.
-        11. **Ensure a smooth and logical flow** of information throughout the notes.
+                **Formatting Rules - CRITICAL Adherence Required:**
+                1.  **ABSOLUTE DOCUMENT START - H1 Main Title:** The entire Markdown output for Part 1 MUST begin IMMEDIATELY with a single H1 heading (e.g., `# Lecture Title`). There must be NO characters, NO blank lines, NO whitespace, NO comments, and NO other Markdown elements of any kind preceding this H1 heading. This H1 heading is the very first line of the output. It must be a standalone line and NOT wrapped in any other block-level element (like a paragraph, blockquote, or div). This is the ONLY H1 heading in the entire document.
+                2.  **Section Headings (H2):** All main sections (e.g., Learning Objectives, Key Concepts, Core Content topics) MUST use H2 headings (e.g., `## 2. Key Concepts`).
+                3.  **Subsection Headings (H3):** All subsections within H2 sections (e.g., specific concepts under "Core Content") MUST use H3 headings (e.g., `### 3.1. Specific Concept`).
+                4.  **NO DEEPER HEADINGS (H4+):** STRICTLY DO NOT use H4 (####), H5 (#####), or any deeper heading levels for any titles, sub-titles, or structural elements.
+                5.  **Formatting Sub-items within H3:** For elements like 'Why This Matters', 'Prerequisites', 'Worked Examples', individual examples, or 'Try It Yourself' points that fall under an H3 subsection, use ONLY bolded text (e.g., `**Why This Matters:** This is important because...`), bulleted lists (`* Item`), or numbered lists (`1. Item`). DO NOT use H4 or deeper headings for these. For instance, a worked example introduction should be `**Worked Example 1:** Description`, not `#### Worked Example 1`.
 
-        **Additional Specific Focus (from Note Style Prompt, if provided):**
-        {note_style_prompt if note_style_prompt else "No additional specific focus provided. Summarize comprehensively based on general data science lecture content."}
+                **Content & Structure - Study Notes:**
 
-        **Transcript:**
-        ---
-        {text_input}
-        ---
+                **Enhanced Content Elements for Study Notes (Reminder: Format these using bold text or lists within H3 sections, NOT H4+ headings):**
 
-        **Please generate the notes in Markdown format, strictly adhering to the structure, detail, and visual appeal guidelines above.**
+                📚 **Conceptual Framework:**
+                - Within an H3 section for a major concept, start with `**Why This Matters:** ` (bolded text) followed by its context.
+                - If applicable, include `**Prerequisites:** ` (bolded text) followed by the prerequisites.
+                - If relevant, include `**Common Misconceptions:** ` (bolded text, perhaps in an admonition-like format if possible using Markdown blockquotes with a leading bold title) for common errors.
+
+                🎯 **Visual Learning Aids:**
+                - Create ASCII diagrams or flowcharts for processes.
+                - Use tables to compare/contrast related concepts.
+                - Include `**Quick Reference:** ` boxes (e.g., using admonitions or styled blockquotes) with formulas/syntax.
+
+                💡 **Learning Enhancements:**
+                - Add `**Pro Tips:** ` (bolded) from industry experience.
+                - Include `**Warning/Pitfall:** ` sections (e.g., using admonitions) for common errors.
+                - Create `**Memory Tricks:** ` or mnemonics for complex concepts.
+
+                🔧 **Practical Elements:**
+                - Within each major concept's H3 section, introduce worked examples with `**Worked Examples:**` (bolded text).
+                - Each individual example should be clearly delineated (e.g., `**Example 1:** Name of Example` or using a list item) followed by code blocks and explanations as requested. Do NOT use H4 for individual examples.
+                - Include `**Try It Yourself:** ` (bolded text) followed by mini-exercises.
+                - Add `**Real Industry Scenario:** ` (bolded text) followed by case studies.
+
+                📊 **Code & Technical Content:**
+                - All code blocks must be production-ready with error handling.
+                - Include multiple implementation approaches when relevant.
+                - Add performance considerations and Big O notation.
+                - Show both "beginner-friendly" and "optimized" versions.
+
+                **Mandatory Sections for Study Notes (use H2 for these section titles, ensure content adheres to heading depth rules):**
+                1. ## Learning Objectives (at the start)
+                2. ## Key Concepts & Vocabulary (with etymology/intuition; sub-definitions under H3 if needed, or bolded terms)
+                3. ## Core Content (organized by topic, using H2 for main topics and H3 for subtopics)
+                4. ## Practical Applications (3+ real-world examples, use H3 for each application title)
+                5. ## Common Interview Questions & Answers
+                    - Identify 3-5 common interview questions that could be asked based on the core concepts of this lecture.
+                    - For each question:
+                    - State the question clearly (you can use H3 for each question, or a bolded list item like `* **Question:** What is...?`).
+                    - Provide a concise, accurate, and comprehensive answer immediately following the question. The answer should be plain paragraph text, potentially with bullet points if listing items.
+                    - Ensure the answer is directly derived from the lecture content and explains the concept thoroughly enough for an interview setting.
+                    - If the lecture content does not naturally lend itself to distinct interview questions, state "No specific interview questions directly arise from this lecture's core content." under this H2 heading.
+                6. ## Further Learning Resources with proper links
+                7. ## Quick Review Checklist
+
+
+                **PART 2: PROFESSIONAL-LEVEL PERSONALIZED TEACHING EXPLANATION**
+
+                After the comprehensive study notes, create a separate, substantial section precisely titled:
+
+                ## 🎓 Let Me Explain This Like We're Colleagues
+
+                Adopt the persona of an experienced, articulate, and engaging senior colleague or mentor guiding a bright junior colleague or advanced student through the complexities of the lecture topic. The goal is deep conceptual understanding and intuition, not just surface-level recall. This section should be as valuable, if not more so, than the formal notes for true learning.
+
+                **Core Philosophy for This Section:**
+                *   **"Why before What":** Always explain the *motivation* and *purpose* behind a concept before diving into its mechanics. Why does this exist? What problem does it solve?
+                *   **Intuition First, Formalism Later (If Necessary):** Build a strong intuitive grasp using analogies and simpler terms. Formal definitions or mathematical rigor should only follow if it genuinely aids deeper understanding for this audience, and should still be explained clearly.
+                *   **Connect the Dots:** Explicitly show how different concepts within the lecture (and potentially related prior knowledge) link together to form a cohesive picture.
+                *   **Beyond the Obvious:** Offer insights that go beyond textbook definitions, perhaps touching upon historical context (briefly, if relevant), common pitfalls in application, or subtle nuances often missed by beginners.
+
+                **Structure and Content Elements for Each Major Concept/Topic Covered:**
+
+                1.  **The "Big Idea" & Its Significance (The "Why"):**
+                    *   Start with a compelling hook or question related to the concept.
+                    *   Clearly state the core problem or need the concept addresses.
+                    *   Explain its importance in the broader field or for specific applications (e.g., "Why is understanding operator precedence non-negotiable for any serious Python developer?").
+
+                2.  **Intuitive Explanation(s) (The "How it Works, Simply"):**
+                    *   **Masterful Analogies (Minimum 2 per key idea):** Go beyond simple comparisons. Develop rich, well-explained analogies from diverse domains (technology, nature, history, everyday life, complex systems like city planning or an orchestra) that illuminate the core mechanics and relationships. Explain *how* the analogy maps to the concept.
+                    *   **Storytelling/Scenario-Based Walkthroughs:** For processes or algorithms, narrate a step-by-step scenario as if solving a real, relatable problem. Show the concept in action.
+                    *   **Multiple Angles of Attack:** Explain the same core idea from at least two different perspectives or using different mental models to cater to varied learning styles.
+
+                3.  **Key Distinctions & Nuances (The "Watch Out For This"):**
+                    *   **Clarify Common Confusion Points:** Proactively address areas where students typically get stuck or misunderstand. ("A frequent point of confusion is X, but think of it this way...")
+                    *   **Subtle but Crucial Differences:** If there are closely related concepts, spend time clearly differentiating them (e.g., "equality `==` vs. identity `is` in Python – subtle but critical!").
+                    *   **Edge Cases & Limitations (Briefly):** Hint at situations where the concept might break down or have specific limitations, fostering critical thinking.
+
+                4.  **Bridging to Practicality (The "So What? How is this Used?"):**
+                    *   **Illustrative Mini-Examples (Code or Pseudocode if applicable):** Provide concise, heavily-commented code snippets or clear pseudocode that demonstrate the concept in a simplified, practical context. Focus on clarity of the concept, not complex application logic.
+                    *   **Real-World Implications (Beyond the Obvious):** Briefly touch upon how this concept underpins more advanced topics or enables significant real-world technologies or solutions.
+
+                5.  **"Aha!" Moment Synthesis (The "Putting It All Together"):**
+                    *   Conclude the explanation of each major concept with a summary that crystallizes the main takeaway or the "aha!" insight.
+                    *   Use reflective questions like, "So, what's the golden rule here?" or "What's the one thing you absolutely must remember about X?"
+
+                **Teaching Style Guidelines for This Section:**
+                *   **Professional yet Conversational:** Maintain an intelligent, articulate tone suitable for an advanced learner ("you," "we," "let's explore," "consider this scenario"). Avoid overly simplistic or patronizing language.
+                *   **Clarity and Precision:** While using analogies, ensure the underlying technical points are communicated accurately.
+                *   **Enthusiasm and Engagement:** Convey a genuine passion for the subject matter.
+                *   **Strategic Use of Formatting:** Use bolding for emphasis on key terms or insights. Use bullet points or numbered lists for clarity where appropriate within explanations.
+                *   **Minimal Emojis:** Use emojis *very* sparingly, only if they add significant, professional-level emphasis or a touch of lightheartedness where appropriate (e.g., a single 💡 for a key insight). The focus is on rich textual explanation.
+
+
+                **Example of Desired Depth and Tone (Expanding on Previous Example):**
+
+                *Instead of just the ice cream analogy for linear regression, consider this structure:*
+
+                "Alright, let's talk about linear regression. **Why does this even exist?** Imagine you're a data scientist at a streaming service. Your boss wants to know: if we spend more on marketing a new show, will we actually get significantly more new subscribers? You've got data on past shows – marketing spend and new sign-ups. Linear regression is essentially your smart tool for trying to draw the most honest, representative straight line through that scattered data.
+
+                **So, how does it 'find' this line?**
+                *   **Analogy 1: The 'Fairest Referee'.** Think of each data point (a show's marketing spend and sign-ups) as a player in a game. The regression line is like a referee trying to position themselves on the field such that they are, on average, as close as possible to all players simultaneously. It's not going to be perfectly next to every player, but it's the 'least wrong' position overall. Mathematically, it's minimizing the sum of the squared distances (the 'errors') from each point to the line. Why squared? It penalizes big misses more heavily and makes the math work out nicely.
+                *   **Analogy 2: The 'Economic Forecaster's Trend Line'.** You've seen those charts of stock prices or economic indicators with a line cutting through them? That's often a regression line (or a more complex version). It's trying to capture the underlying trend, smoothing out the daily noise. It helps answer: 'Generally, is this going up or down, and how steeply?'
+
+                **A common point of confusion:** People sometimes think linear regression *predicts the future with certainty*. Not quite. It gives you the *best linear estimate* based on past data. The real world has more variables and randomness. So, the line helps us understand the *relationship* and make *informed estimations*, but it's not a crystal ball. Another nuance is that 'linear' doesn't just mean a straight line in raw X vs. Y; you can transform your variables (e.g., log(X)) and still fit a linear model to that transformed relationship.
+
+                **Practically, in Python (with Scikit-learn, for instance),** you'd feed it your `marketing_spend` (X) and `new_signups` (Y) data. It then calculates the slope (how many more sign-ups you get for each extra dollar spent, on average) and the intercept (the baseline sign-ups if marketing spend was zero).
+
+                **The 'Aha!' moment:** Linear regression isn't just about drawing a line; it's about quantifying a linear relationship between variables in the presence of noise, allowing us to understand trends and make predictions, however imperfect. It's a foundational tool for understanding how one thing influences another."
+
+
+                **Additional Focus for Both Parts (Study Notes & Teaching Explanation):**
+                {note_style_prompt if note_style_prompt else "Focus on making complex concepts accessible to beginners while maintaining technical accuracy."}
+
+                **Transcript:**
+                ---
+                {text_input}
+                ---
+
+                **Final Instruction:** Generate both Part 1 and Part 2 with clear separation. The Study Notes (Part 1) MUST adhere to all specified formatting rules, especially the H1, H2, H3 heading structure and the absolute start of the document with the H1 title. The teaching explanation (Part 2) should follow its own distinct style guide.
+
         """
 
-        model = genai.GenerativeModel('gemini-2.0-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         response = model.generate_content(enhanced_prompt)
 
         if hasattr(response, 'text') and response.text:
