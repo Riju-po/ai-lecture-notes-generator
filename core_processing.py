@@ -274,7 +274,7 @@ def generate_notes_with_gemini_api(text_input, api_key, note_style_prompt=""):
 
         """
 
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        model = genai.GenerativeModel('gemini-2.5-pro')
         response = model.generate_content(enhanced_prompt)
 
         if hasattr(response, 'text') and response.text:
